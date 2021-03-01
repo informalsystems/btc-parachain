@@ -14,9 +14,11 @@ mod tests;
 extern crate mocktopus;
 
 use frame_support::traits::{Currency, ExistenceRequirement, ReservableCurrency};
+use frame_support::transactional;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
 };
+use frame_system::ensure_signed;
 use sp_runtime::ModuleId;
 
 type BalanceOf<T> =
@@ -74,6 +76,21 @@ decl_module! {
         // Initializing events
         // this is needed only if you are using events in your pallet
         fn deposit_event() = default;
+
+        /// Mint PolkaBTC to signer.
+        ///
+        /// # Arguments
+        ///
+        /// * `origin` - signing account
+        /// * `amount` - amount of PolkaBTC
+        #[weight = 0]
+        #[transactional]
+        fn mint_tokens(origin, amount: BalanceOf<T>) -> DispatchResult
+        {
+            let signer = ensure_signed(origin)?;
+            Self::mint(signer, amount);
+            Ok(())
+        }
     }
 }
 

@@ -13,9 +13,11 @@ mod tests;
 
 use frame_support::dispatch::{DispatchError, DispatchResult};
 use frame_support::traits::{Currency, ExistenceRequirement, ReservableCurrency};
+use frame_support::transactional;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, ensure, sp_runtime::ModuleId,
 };
+use frame_system::ensure_signed;
 
 type BalanceOf<T> =
     <<T as Config>::DOT as Currency<<T as frame_system::Config>::AccountId>>::Balance;
@@ -64,6 +66,23 @@ decl_module! {
 
         // Initializing events
         fn deposit_event() = default;
+
+        /// Mint DOT to signer.
+        ///
+        /// # Arguments
+        ///
+        /// * `origin` - signing account
+        /// * `amount` - amount of PolkaBTC
+        #[weight = 0]
+        #[transactional]
+        fn mint_collateral(origin, amount: BalanceOf<T>) -> DispatchResult
+        {
+            let signer = ensure_signed(origin)?;
+            let minted = T::DOT::issue(amount);
+            T::DOT::resolve_creating(&signer, minted);
+            Ok(())
+        }
+
     }
 }
 

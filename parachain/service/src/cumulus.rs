@@ -1,5 +1,4 @@
 use btc_parachain_runtime::{opaque::Block, RuntimeApi};
-use cumulus_consensus::{build_relay_chain_consensus, BuildRelayChainConsensusParams};
 use cumulus_network::build_block_announce_validator;
 use cumulus_primitives::ParaId;
 use cumulus_service::{
@@ -9,7 +8,6 @@ use polkadot_primitives::v0::CollatorPair;
 // use rococo_primitives::Block;
 pub use sc_executor::NativeExecutor;
 use sc_service::{Configuration, PartialComponents, Role, TaskManager};
-use sc_telemetry::TelemetrySpan;
 use sp_core::Pair;
 use sp_runtime::traits::BlakeTwo256;
 use sp_trie::PrefixedMemoryDB;
@@ -50,7 +48,7 @@ pub fn new_partial(
         client.clone(),
     );
 
-    let import_queue = cumulus_consensus::import_queue(
+    let import_queue = cumulus_consensus::import_queue::import_queue(
         client.clone(),
         client.clone(),
         inherent_data_providers.clone(),
@@ -143,9 +141,6 @@ async fn start_node_impl(
         })
     };
 
-    let telemetry_span = TelemetrySpan::new();
-    let _telemetry_span_entered = telemetry_span.enter();
-
     sc_service::spawn_tasks(sc_service::SpawnTasksParams {
         on_demand: None,
         remote_blockchain: None,
@@ -159,7 +154,6 @@ async fn start_node_impl(
         network: network.clone(),
         network_status_sinks,
         system_rpc_tx,
-        telemetry_span: Some(telemetry_span.clone()),
     })?;
 
     let announce_block = {
@@ -176,26 +170,22 @@ async fn start_node_impl(
         );
         let spawner = task_manager.spawn_handle();
 
-        let parachain_consensus = build_relay_chain_consensus(BuildRelayChainConsensusParams {
-            para_id: id,
-            proposer_factory,
-            inherent_data_providers: params.inherent_data_providers,
-            block_import: client.clone(),
-            relay_chain_client: polkadot_full_node.client.clone(),
-            relay_chain_backend: polkadot_full_node.backend.clone(),
-        });
+        let polkadot_backend = polkadot_full_node.backend.clone();
 
         let params = StartCollatorParams {
             para_id: id,
+            block_import: client.clone(),
+            proposer_factory,
+            inherent_data_providers: params.inherent_data_providers,
             block_status: client.clone(),
             announce_block,
             client: client.clone(),
             task_manager: &mut task_manager,
             collator_key,
-            relay_chain_full_node: polkadot_full_node,
+            polkadot_full_node,
             spawner,
             backend,
-            parachain_consensus,
+            polkadot_backend,
         };
 
         start_collator(params).await?;
